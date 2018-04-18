@@ -1,58 +1,99 @@
-T=[0;0;0;0];
-n=[0;0]
-x0 = 1;
-y0 = 1;
-vx = 0.5;
-vy = 0.5;
+xo = 1000;
+yo = 1000;
+vx = 50;
+vy = 50;
+X = [xo yo vx vy]';
+T = 1;
+F = [eye(2) T*eye(2); zeros(2,2) eye(2)];
+F*X;
 
-a = 0.25;
-j = a;
+Q = [T*T/2 2*T*T*T/3 0 0;
+    0 0 T*T/2 2*T*T*T/3;
+    T T*T/2 0 0 ;
+    0 0 T T*T/2];
+%q = normrnd(0,1,[1,4])';
 
+beta = [20 4 1+5e-3 6e-4]';
 
-t = 0.1;
-beta = [0.01; 0.02; 0.001; 0.005];
-F = [1 0 t 0 ; 0 1 0 t; 0 0 1 0 ; 0 0 0 1];
-X = [x0; y0; 0.5 ; 0.5];
-Q = [0.25*t*t/2, 2*t*t*t/3, 0, 0;0.25*t, 0.25*t*t/2, 0, 0 ; 0, 0, 0.25*0.25*t*t/2, 0.25*0.25*2*t*t*t/3; 0, 0, 0.25*0.25*t, 0.25*0.25*t*t/2];
-H = [1, 0, 0, 0;0 ,0 ,1 ,0];
-zero = [0;0;0;0];
-Vk = awgn(zero,1);
-X1 = F*X + Q*Vk;
-xi = X(1,1);
-yi = X(2,1);
-ri=sqrt(xi^2+yi^2)
-thetai=atan(yi/xi)
-w = awgn(n,1);
+H = [1 0 0 0; 0 1 0 0];
 
-B = [cos(thetai) , -1*ri*sin(thetai); sin(thetai) , ri*cos(thetai)];
-C = [1 , 0 , ri , 0; 0 , 1 , 0 , thetai];
+Ri=nan(2,2);
+RRRR = zeros(200,200);
+X1 = X;
+ri = sqrt(X(1,1)*X(1,1) + X(2,1)*X(2,1));
+thetai = atan(X(2,1)/X(1,1)); 
+R = ri;
+Theta = thetai;
 
-Z = H*X + B*C*beta + w;
-T=T+X1;
-for t = 0.2:0.1:2
-    F = [1 0 t 0 ; 0 1 0 t; 0 0 1 0 ; 0 0 0 1];
-    Q = [0.25*t*t/2, 2*t*t*t/3, 0, 0;0.25*t, 0.25*t*t/2, 0, 0 ; 0, 0, 0.25*0.25*t*t/2, 0.25*0.25*2*t*t*t/3; 0, 0, 0.25*0.25*t, 0.25*0.25*t*t/2];
-    Vk = awgn(zero,1);
-    X1 = F*X1 + Q*Vk;
+xm = ri*cos(thetai);
+ym = ri*sin(thetai);
+
+Xmeasured = [xm ym vx vy]';
+%Z = zeros(1,2)';
+%Z = nan(2,1); 
+for i = 1:100
+
+    q = normrnd(0,1,[1,4])';
+
+    X = F*X + Q*q;
+    X1 = horzcat(X1,X);
     
-    xi = X1(1,1);
-    yi = X1(2,1);
-    ri=sqrt(xi^2+yi^2)
-    thetai=atan(yi/xi)
+    ri = sqrt(X(1,1)*X(1,1) + X(2,1)*X(2,1));
+    thetai = atan(X(2,1)/X(1,1)); 
     
-    B = [cos(thetai) , -1*ri*sin(thetai); sin(thetai) , ri*cos(thetai)];
-    C = [1 , 0 , ri , 0; 0 , 1 , 0 , thetai];
-    w = awgn(n,1);
+    ri = ri + normrnd(0,1);
+    thetai = thetai + normrnd(0,0.01);
     
-    Z1 = H*X1 + B*C*beta + w;
-    Z=horzcat(Z,Z1);
+    R = horzcat(R,ri);
+    Theta = horzcat(Theta,thetai);
     
-    T=horzcat(T,X1);
     
-end 
-  T2 = T'
-  plot(T2(:,1),T2(:,2))
-  disp(Z);
-  
-  
-  
+    %x and y measured:
+    xm = ri*cos(thetai);
+    ym = ri*sin(thetai);
+    
+    Xm = [xm ym vx vy]';
+    
+    Xmeasured=horzcat(Xmeasured,Xm);
+    
+    %B = [cos(thetai) -1*ri*sin(thetai); sin(thetai) ri*cos(thetai)];
+    B = [cos(thetai) -1*sin(thetai); sin(thetai) cos(thetai)];
+
+    C = [eye(2) [ri 0 ; 0 thetai]];
+    Z1 = H*Xm + B*C*beta;
+    if(i==1)
+        coolH=B*C;
+        Z=Z1
+    else
+        coolH = vertcat(coolH,B*C);
+        Z = vertcat(Z,Z1);
+    end   
+end
+
+X1 = X1';
+%disp(R);
+%disp(Theta);
+%disp(X1(:,1))
+
+varr=var(R);
+varth=var(Theta);
+
+for i = 1:100
+    ri2 = R(1,i)^2;
+    sin2 = sin(Theta(1,i))^2;
+    cos2=cos(Theta(1,i))^2;
+    rrr=[ri2*varth*sin2+varr*cos2   (varr-ri2*varth)*sin2*cos2; 
+        (varr-ri2*varth)*sin2*cos2  ri2*varth*cos2+varr*sin2];
+    Ri=horzcat(Ri,rrr);
+    %RRRR = cat(3,RRRR,rrr);
+    RRRR(2*i-1:2*i,2*i-1:2*i) = rrr;
+end
+
+inv(coolH'*inv(RRRR)*coolH)*coolH'*inv(RRRR)*Z
+size(Z);
+%plot(Z(:,1),Z(:,2),'r')
+hold on;
+plot(Xmeasured(1,:),Xmeasured(2,:),'g')
+hold on;
+plot(X1(:,1),X1(:,2),'b');
+hold off;
