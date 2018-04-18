@@ -1,4 +1,8 @@
-X = [1000 1000 50 50]';
+xo = 1000;
+yo = 1000;
+vx = 50;
+vy = 50;
+X = [xo yo vx vy]';
 T = 0.5;
 F = [eye(2) T*eye(2); zeros(2,2) eye(2)];
 F*X;
@@ -7,22 +11,62 @@ Q = [T*T/2 2*T*T*T/3 0 0;
     0 0 T*T/2 2*T*T*T/3;
     T T*T/2 0 0 ;
     0 0 T T*T/2];
+beta = [20 2 3e-4 2e-4]';
 
+H = [eye(2) zeros(2,2)];
 
 X1 = X;
-
+ri = sqrt(X(1,1)*X(1,1) + X(2,1)*X(2,1));
+thetai = atan(X(2,1)/X(1,1)); 
+R = ri;
+Theta = thetai;
+Z = zeros(1,2)';
 for i = 1:100
 
-    q = normrnd(0,10,[1,4])';
+    q = normrnd(0,5,[1,4])';
 
     X = F*X + Q*q;
     X1 = horzcat(X1,X);
+    
+    ri = sqrt(X(1,1)*X(1,1) + X(2,1)*X(2,1));
+    thetai = atan(X(2,1)/X(1,1)); 
+    
+    ri = ri+ normrnd(0,1);
+    thetai = thetai + normrnd(0,1);
+    
+    R = horzcat(R,ri);
+    Theta = horzcat(Theta,thetai);
+    
+    
+    %x and y measured:
+    xm = ri*cos(thetai);
+    ym = ri*sin(thetai);
+    
+    Xm = [xm ym vx vy]';
+    
+    
+    B = [cos(thetai) -1*ri*sin(thetai); sin(thetai) ri*cos(thetai)];
+    C = [eye(2) [ri 0 ; 0 thetai]];
+    
+    Z1 = H*Xm + B*C*beta;
+    
+    Z = horzcat(Z,Z1);
+    
+    
 end
+
+Z = Z';
+disp(Z)
 X1 = X1';
-
+%disp(R);
+%disp(Theta);
 %disp(X1(:,1))
-plot(X1(:,1),X1(:,2))
 
+plot(Z(:,1),Z(:,2),'g')
+%hold on;
+%plot(X1(:,1),X1(:,2),'b');
+
+%hold off;
 
 
 
