@@ -1,0 +1,101 @@
+xo = 1000;
+yo = 1000;
+vx = 50;
+vy = 50;
+X = [xo yo vx vy]';
+T = 1;
+F = [eye(2) T*eye(2); zeros(2,2) eye(2)];
+F*X;
+
+Q = [T*T/2 2*T*T*T/3 0 0;
+    0 0 T*T/2 2*T*T*T/3;
+    T T*T/2 0 0 ;
+    0 0 T T*T/2];
+%q = normrnd(0,1,[1,4])';
+
+beta = [20 400 -1+5e-3 6e-4]';
+
+H = [1 0 0 0; 0 1 0 0];
+
+Ri=nan(2,2);
+RRRR = zeros(200,200);
+X1 = X;
+ri = sqrt(X(1,1)*X(1,1) + X(2,1)*X(2,1));
+thetai = atan(X(2,1)/X(1,1)); 
+R = ri;
+Theta = thetai;
+
+xm = ri*cos(thetai);
+ym = ri*sin(thetai);
+
+Xmeasured = [xm ym vx vy]';
+%Z = zeros(1,2)';
+%Z = nan(2,1); 
+for i = 1:100
+
+    q = normrnd(0,1,[1,4])';
+
+    X = F*X + Q*q;
+    X1 = horzcat(X1,X);
+    
+    ri = sqrt(X(1,1)*X(1,1) + X(2,1)*X(2,1));
+    thetai = atan(X(2,1)/X(1,1)); 
+    
+    ri = ri + normrnd(0,1);
+    thetai = thetai + normrnd(0,0.01);
+    
+    R = horzcat(R,ri);
+    Theta = horzcat(Theta,thetai);
+    
+    
+    %x and y measured:
+    xm = ri*cos(thetai);
+    ym = ri*sin(thetai);
+    
+    Xm = [xm ym vx vy]';
+    
+    Xmeasured=horzcat(Xmeasured,Xm);
+    
+    %B = [cos(thetai) -1*ri*sin(thetai); sin(thetai) ri*cos(thetai)];
+    B = [cos(thetai) -1*sin(thetai); sin(thetai) cos(thetai)];
+
+    C = [eye(2) [ri 0 ; 0 thetai]];
+    Z1 = H*Xm + B*C*beta;
+    if(i==1)
+        coolH=B*C;
+        Z=Z1;
+        Zplot=Z1;
+    else
+        coolH = vertcat(coolH,B*C);
+        Z = vertcat(Z,Z1);
+        Zplot=horzcat(Zplot,Z1);
+    end   
+end
+
+X1 = X1';
+%disp(R);
+%disp(Theta);
+%disp(X1(:,1))
+
+varr=var(R);
+varth=var(Theta);
+
+for i = 1:100
+    ri2 = R(1,i)^2;
+    sin2 = sin(Theta(1,i))^2;
+    cos2=cos(Theta(1,i))^2;
+    rrr=[ri2*varth*sin2+varr*cos2   (varr-ri2*varth)*sin2*cos2; 
+        (varr-ri2*varth)*sin2*cos2  ri2*varth*cos2+varr*sin2];
+    Ri=horzcat(Ri,rrr);
+    %RRRR = cat(3,RRRR,rrr);
+    RRRR(2*i-1:2*i,2*i-1:2*i) = rrr;
+end
+
+inv(coolH'*inv(RRRR)*coolH)*coolH'*inv(RRRR)*Z
+size(Zplot)
+plot(Zplot(1,:),Zplot(2,:),'r')
+hold on;
+plot(Xmeasured(1,:),Xmeasured(2,:),'g')
+hold on;
+plot(X1(:,1),X1(:,2),'b');
+hold off;
