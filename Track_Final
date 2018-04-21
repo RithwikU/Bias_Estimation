@@ -1,0 +1,67 @@
+%Sampling time
+T = 0.5;
+
+%Transition matrix
+F = [1 0 T 0;
+     0 1 0 T;
+     0 0 1 0;
+     0 0 0 1];
+
+%Process noise covariance
+Qx = 4*[0.5*T*T (2/3)*T*T*T;
+      T 0.5*T*T];
+Q = [Qx zeros(2,2);
+     zeros(2,2) Qx];
+
+%Measurement matrix
+H = [1 0 0 0;
+     0 1 0 0];
+
+%Measurement noise covariance R
+sigma2_r = 100;
+sigma2_theta = 1e-3;
+
+R = [sigma2_r 0;
+     0 sigma2_theta];
+
+%Bias
+beta = [200 5e-3 1e-3 2e-6]';
+
+%Initial state
+X = [10e4 10e4 25 25]';
+
+state = [];
+radar_unbiased = [];
+radar_biased = [];
+gps = [];
+
+%Number of points
+M = 100;
+
+for i = 1:M
+    v = Q * normrnd(0,1,[4,1]);
+    X = F*X + v;
+    state = [state X];
+    if(randn>0)
+        gps = [gps [H*X; 0; i]];
+    else
+        Z = H*X;
+        radar_unbiased = [radar_unbiased [Z;1 ;i]];
+        r = sqrt(Z(1,1)^2 + Z(2,1)^2) + sigma2_r*normrnd(0,1);
+        theta = atan2(Z(2,1),Z(1,1)) + sigma2_theta*normrnd(0,1);
+        
+        B = [cos(theta) -r*sin(theta);
+            sin(theta) r*cos(theta)];
+        C = [1 0 r 0;
+             0 1 0 theta];
+        Z_biased = Z + (B*C)*beta;
+        radar_biased = [radar_biased [Z_biased;1 ; i]];
+    end
+end
+
+
+size(gps)
+plot(gps(1,:),gps(2,:),'b');
+hold on;
+plot(radar_biased(1,:),radar_biased(2,:),'g');
+hold off;
